@@ -98,8 +98,8 @@
                                     style="background: linear-gradient(135deg, #00ff88, #00cc6a); color: #000; border: none; font-weight: 600;">
                                 <i class="bi bi-person-plus me-1"></i>分配
                             </button>
-                            <button class="btn btn-sm" 
-                                    onclick="deletePath('{{ path.path }}')"
+                            <button class="btn btn-sm delete-path-btn" 
+                                    data-path="{{ path.path | e }}"
                                     style="background: linear-gradient(135deg, rgba(255,71,87,0.2), rgba(255,99,113,0.15)); color: #ff4757; border: 1px solid rgba(255,71,87,0.3); font-weight: 500;">
                                 <i class="bi bi-trash"></i>
                             </button>
@@ -244,16 +244,30 @@ function confirmAssign() {
     .catch(err => alert('请求失败：' + err));
 }
 
+// 使用事件委托处理删除按钮（避免 HTML 属性中的路径转义问题）
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.delete-path-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const path = this.getAttribute('data-path');
+            console.log('[DEBUG] 删除路径:', path);
+            deletePath(path);
+        });
+    });
+});
+
 function deletePath(path) {
     if (!confirm('确定要删除此路径吗？\n\n注意：这不会删除已分配的权限，只是从路径列表中移除。')) return;
+    
+    console.log('[DEBUG] 发送到后端的路径:', path);
     
     fetch('/admin/paths/delete', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({path})
+        body: JSON.stringify({path: path})
     })
     .then(res => res.json())
     .then(data => {
+        console.log('[DEBUG] 删除结果:', data);
         if (data.success) {
             alert('路径已删除');
             location.reload();

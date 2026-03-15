@@ -455,11 +455,15 @@ def admin_permissions_user_api(user_id):
 @login_required
 @admin_required
 def admin_permissions_grant():
+    import os
     user_id = request.json.get('user_id')
     directory_path = request.json.get('directory_path', '').strip()
     directory_name = request.json.get('directory_name', '').strip()
     permission_level = request.json.get('permission_level', 'read')
     action = request.json.get('action', 'grant')  # 'grant' or 'revoke'
+    
+    # 标准化路径：将正斜杠转换为反斜杠，确保 D:/ 和 D:\ 被视为同一路径
+    directory_path = os.path.normpath(directory_path)
     
     if not user_id or not directory_path:
         return jsonify({'success': False, 'error': '参数不完整'}), 400
@@ -596,11 +600,15 @@ def admin_paths():
 @admin_required
 def admin_paths_add():
     """添加新路径（预注册）"""
+    import os
     path = request.json.get('path', '').strip()
     name = request.json.get('name', '').strip()
     
     if not path or not name:
         return jsonify({'success': False, 'error': '路径和名称不能为空'}), 400
+    
+    # 标准化路径：将正斜杠转换为反斜杠
+    path = os.path.normpath(path)
     
     # 检查目录是否存在，不存在则创建
     if not os.path.exists(path):
@@ -644,14 +652,29 @@ def admin_paths_delete():
     if not path:
         return jsonify({'success': False, 'error': '路径不能为空'}), 400
     
+    print(f"[DEBUG] 删除路径请求：{repr(path)}")
+    
     db = get_session()
     try:
-        db.query(RegisteredPath).filter(RegisteredPath.path == path).delete()
-        db.commit()
-        log_action('路径删除', f'管理员删除路径列表项：{path}', 'admin', request)
-        return jsonify({'success': True})
+        # 先查询是否存在
+        target = db.query(RegisteredPath).filter(RegisteredPath.path == path).first()
+        print(f"[DEBUG] 查询结果：{target}")
+        
+        if target:
+            db.query(RegisteredPath).filter(RegisteredPath.path == path).delete()
+            db.commit()
+            log_action('路径删除', f'管理员删除路径列表项：{path}', 'admin', request)
+            print(f"[DEBUG] 删除成功")
+            return jsonify({'success': True})
+        else:
+            # 尝试模糊匹配
+            like_path = f"%{path}%"
+            targets = db.query(RegisteredPath).filter(RegisteredPath.path.like(like_path)).all()
+            print(f"[DEBUG] 模糊匹配结果：{[(p.id, p.path) for p in targets]}")
+            return jsonify({'success': False, 'error': f'未找到路径：{path}，数据库中有：{[p.path for p in db.query(RegisteredPath).all()]}'}), 404
     except Exception as e:
         db.rollback()
+        print(f"[DEBUG] 删除异常：{e}")
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:
         db.close()

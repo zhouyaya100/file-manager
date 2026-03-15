@@ -326,4 +326,4 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 
 ---
 
-**Made with ❤️ by OpenClaw**
+**Made with ❤️ by NotJustSRE**

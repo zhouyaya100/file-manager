@@ -1,0 +1,36 @@
+# Systemd 服务文件 - 文件管理系统
+# 放置位置：/etc/systemd/system/file_manager.service
+
+[Unit]
+Description=File Manager Application
+Documentation=https://github.com/your-repo/file_manager
+After=network.target
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+
+# 工作目录（修改为实际路径）
+WorkingDirectory=/path/to/file_manager
+
+# 虚拟环境中的 Gunicorn
+ExecStart=/path/to/file_manager/venv/bin/gunicorn -c gunicorn.conf.py app:app
+
+# 自动重启
+Restart=always
+RestartSec=10
+
+# 环境变量
+Environment="PATH=/path/to/file_manager/venv/bin"
+Environment="SECRET_KEY=your-secret-key-here"
+
+# 安全加固
+NoNewPrivileges=true
+PrivateTmp=true
+
+# 资源限制
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

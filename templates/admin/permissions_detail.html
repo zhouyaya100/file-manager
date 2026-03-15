@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}{{ user.username }} - 权限管理{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('admin_permissions') }}">权限管理</a></li>
+                <li class="breadcrumb-item active">{{ user.username }}</li>
+            </ol>
+        </nav>
+        
+        <h2 class="page-title">
+            <i class="bi bi-person-circle me-2" style="color: #00d4ff;"></i>{{ user.username }} 的权限
+        </h2>
+        <p class="text-muted">管理此用户的目录访问权限</p>
+    </div>
+</div>
+
+<!-- 用户信息卡片 -->
+<div class="content-card mb-4">
+    <div class="card-body-custom p-4">
+        <div class="row align-items-center">
+            <div class="col-auto">
+                <div class="user-avatar-large">
+                    <i class="bi bi-person-circle"></i>
+                </div>
+            </div>
+            <div class="col">
+                <h4 class="mb-2 text-white fw-bold">{{ user.username }}</h4>
+                <div class="d-flex gap-2">
+                    {% if user.role == 'admin' %}
+                    <span class="badge" style="background: linear-gradient(135deg, #ff4757, #ff6371); color: #fff; font-weight: 600;">管理员</span>
+                    {% else %}
+                    <span class="badge" style="background: linear-gradient(135deg, #6c757d, #495057); color: #fff; font-weight: 600;">普通用户</span>
+                    {% endif %}
+                    <span class="badge" style="background: linear-gradient(135deg, {% if user.is_active %}#00ff88, #00cc6a{% else %}#ff4757, #ff6371{% endif %}); color: {% if user.is_active %}#000{% else %}#fff{% endif %}; font-weight: 600;">
+                        {{ '正常' if user.is_active else '禁用' }}
+                    </span>
+                </div>
+            </div>
+            <div class="col-auto">
+                <a href="{{ url_for('admin_users') }}" class="btn btn-outline-light">
+                    <i class="bi bi-arrow-left me-1"></i>返回用户列表
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 权限列表 -->
+<div class="content-card">
+    <div class="card-header-custom">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="text-white mb-0">
+                <i class="bi bi-folder me-2" style="color: #ffd700;"></i>授权目录
+            </h5>
+            <button class="btn btn-sm" style="background: linear-gradient(135deg, #00d4ff, #0096c8); color: #fff; border: none; font-weight: 600;" onclick="showGrantModal()">
+                <i class="bi bi-plus-lg me-1"></i>添加权限
+            </button>
+        </div>
+    </div>
+    <div class="card-body-custom">
+        {% if permissions %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>目录名称</th>
+                        <th>路径</th>
+                        <th>权限级别</th>
+                        <th>授权时间</th>
+                        <th class="text-end">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for perm in permissions %}
+                    <tr>
+                        <td class="text-white">
+                            <i class="bi bi-folder-fill me-2" style="color: #ffd700;"></i>
+                            <span class="fw-medium">{{ perm.directory_name }}</span>
+                        </td>
+                        <td class="text-muted font-monospace small">{{ perm.directory_path }}</td>
+                        <td>
+                            {% if perm.permission_level == 'write' %}
+                            <span class="badge" style="background: linear-gradient(135deg, #00ff88, #00cc6a); color: #000; font-weight: 600;">
+                                <i class="bi bi-pencil me-1"></i>读写
+                            </span>
+                            {% else %}
+                            <span class="badge" style="background: linear-gradient(135deg, #00d4ff, #0096c8); color: #fff; font-weight: 600;">
+                                <i class="bi bi-eye me-1"></i>只读
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">
+                            {{ perm.granted_at.strftime('%Y-%m-%d %H:%M') if perm.granted_at else '-' }}
+                        </td>
+                        <td class="text-end">
+                            <button class="btn btn-sm" style="background: linear-gradient(135deg, rgba(255,71,87,0.2), rgba(255,99,113,0.15)); color: #ff4757; border: 1px solid rgba(255,71,87,0.3); font-weight: 500;" 
+                                    onclick="revokePermission({{ perm.id }})">
+                                <i class="bi bi-trash me-1"></i>撤销
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-folder-x display-4" style="color: rgba(255,255,255,0.3);"></i>
+            <p class="mt-3" style="color: rgba(255,255,255,0.7); font-weight: 500;">暂无授权目录</p>
+            <p style="color: rgba(255,255,255,0.4); font-size: 0.9rem;">点击上方按钮为用户添加目录权限</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 授权模态框 -->
+<div class="modal fade" id="grantModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="border-bottom-color: rgba(255,255,255,0.1);">
+                <h5 class="modal-title" style="color: #fff;"><i class="bi bi-key me-2" style="color: #ffd700;"></i>添加权限</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="grant-form">
+                    <input type="hidden" id="grant-user-id" value="{{ user.id }}">
+                    
+                    <div class="mb-3">
+                        <label for="grant-directory-path" class="form-label text-white fw-medium">目录路径 *</label>
+                        <input type="text" class="form-control" id="grant-directory-path" 
+                               placeholder="C:\Users\Public\Documents" required
+                               style="background: rgba(0,0,0,0.3); border: 1px solid rgba(0,212,255,0.2); color: #fff;">
+                        <div class="form-text small">示例：C:\Users\Public\Documents 或 /home/user/files</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="grant-directory-name" class="form-label text-white fw-medium">目录名称 *</label>
+                        <input type="text" class="form-control" id="grant-directory-name" 
+                               placeholder="公共文档" required
+                               style="background: rgba(0,0,0,0.3); border: 1px solid rgba(0,212,255,0.2); color: #fff;">
+                        <div class="form-text small">示例：公共文档、项目资料、个人文件</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-white fw-medium">权限级别</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="permission_level" 
+                                   id="perm-read" value="read" checked>
+                            <label class="btn" for="perm-read" style="background: rgba(0,212,255,0.15); border: 1px solid rgba(0,212,255,0.3); color: #00d4ff;">
+                                <i class="bi bi-eye me-1"></i>只读
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="permission_level" 
+                                   id="perm-write" value="write">
+                            <label class="btn" for="perm-write" style="background: rgba(0,255,136,0.15); border: 1px solid rgba(0,255,136,0.3); color: #00ff88;">
+                                <i class="bi bi-pencil me-1"></i>读写
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="alert" style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); color: #ffc107;" role="alert">
+                        <i class="bi bi-info-circle me-1"></i>
+                        如果目录不存在，系统将自动创建
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="border-top-color: rgba(255,255,255,0.1);">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" 
+                        style="background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.2);">取消</button>
+                <button type="button" class="btn" onclick="grantPermission()"
+                        style="background: linear-gradient(135deg, #00d4ff, #0096c8); color: #fff; border: none; font-weight: 600;">
+                    <i class="bi bi-check-lg me-1"></i>确认授权
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showGrantModal() {
+    new bootstrap.Modal(document.getElementById('grantModal')).show();
+}
+
+function grantPermission() {
+    const user_id = document.getElementById('grant-user-id').value;
+    const directory_path = document.getElementById('grant-directory-path').value.trim();
+    const directory_name = document.getElementById('grant-directory-name').value.trim();
+    const permission_level = document.querySelector('input[name="permission_level"]:checked').value;
+    
+    if (!directory_path || !directory_name) {
+        alert('请填写所有必填字段');
+        return;
+    }
+    
+    fetch('/admin/permissions/grant', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id, directory_path, directory_name, permission_level})
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('授权成功！');
+            location.reload();
+        } else {
+            alert('授权失败：' + data.error);
+        }
+    })
+    .catch(err => alert('请求失败：' + err));
+}
+
+function revokePermission(permissionId) {
+    if (!confirm('确定要撤销此权限吗？')) return;
+    
+    fetch('/admin/permissions/revoke', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id: {{ user.id }}, permission_id: permissionId})
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('权限已撤销');
+            location.reload();
+        } else {
+            alert('操作失败：' + data.error);
+        }
+    })
+    .catch(err => alert('请求失败：' + err));
+}
+</script>
+{% endblock %}

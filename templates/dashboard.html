@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}仪表板 - 文件管理系统{% endblock %}
+
+{% block content %}
+<!-- 欢迎标题卡片 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="page-header-card">
+            <div class="page-header-icon">
+                <i class="bi bi-speedometer2"></i>
+            </div>
+            <div class="page-header-content">
+                <h2>
+                    <i class="bi bi-person-circle me-2" style="color: #00d4ff;"></i>欢迎回来，{{ user.username }}
+                </h2>
+                <p class="mb-0">
+                    {% if user.role == 'admin' %}
+                    <span style="color: #00d4ff;">管理员控制台</span> - 管理系统用户和权限
+                    {% else %}
+                    查看您的文件目录和访问权限
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 统计卡片 -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #00d4ff, #0096c8); box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);">
+                <i class="bi bi-folder" style="color: #fff;"></i>
+            </div>
+            <div class="stat-content">
+                <h3 style="color: #fff;">{{ permissions|length }}</h3>
+                <p style="color: rgba(255,255,255,0.7);">授权目录</p>
+            </div>
+        </div>
+    </div>
+    
+    {% if user.role == 'admin' %}
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #00ff88, #00cc6a); box-shadow: 0 4px 15px rgba(0, 255, 136, 0.4);">
+                <i class="bi bi-people" style="color: #000;"></i>
+            </div>
+            <div class="stat-content">
+                <h3 style="color: #fff;" id="stat-users">-</h3>
+                <p style="color: rgba(255,255,255,0.7);">系统用户</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #a855f7, #7c3aed); box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);">
+                <i class="bi bi-key" style="color: #fff;"></i>
+            </div>
+            <div class="stat-content">
+                <h3 style="color: #fff;" id="stat-permissions">-</h3>
+                <p style="color: rgba(255,255,255,0.7);">权限配置</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #ffd700, #ffc107); box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);">
+                <i class="bi bi-journal-text" style="color: #000;"></i>
+            </div>
+            <div class="stat-content">
+                <h3 style="color: #fff;" id="stat-logs">-</h3>
+                <p style="color: rgba(255,255,255,0.7);">审计日志</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row g-4">
+    <!-- 我的目录 -->
+    <div class="col-lg-8">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <h5><i class="bi bi-folder me-2"></i>我的目录</h5>
+                <a href="{{ url_for('files') }}" class="btn btn-sm btn-outline-light">
+                    <i class="bi bi-arrow-right me-1"></i>管理文件
+                </a>
+            </div>
+            <div class="card-body-custom">
+                {% if permissions %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th><i class="bi bi-folder me-2"></i>目录名称</th>
+                                <th><i class="bi bi-path me-2"></i>路径</th>
+                                <th><i class="bi bi-shield me-2"></i>权限</th>
+                                <th><i class="bi bi-clock me-2"></i>授权时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for perm in permissions %}
+                            <tr>
+                                <td>
+                                    <i class="bi bi-folder-fill me-2" style="color: #ffd700;"></i>
+                                    <span style="color: #fff; font-weight: 500;">{{ perm.directory_name }}</span>
+                                </td>
+                                <td style="color: rgba(255,255,255,0.6); font-family: 'Consolas', monospace; font-size: 0.85rem;">{{ perm.directory_path }}</td>
+                                <td>
+                                    {% if perm.permission_level == 'write' %}
+                                    <span class="badge" style="background: linear-gradient(135deg, #00ff88, #00cc6a); color: #000; font-weight: 600;">
+                                        <i class="bi bi-pencil me-1"></i>读写
+                                    </span>
+                                    {% else %}
+                                    <span class="badge" style="background: linear-gradient(135deg, #00d4ff, #0096c8); color: #fff; font-weight: 600;">
+                                        <i class="bi bi-eye me-1"></i>只读
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td style="color: rgba(255,255,255,0.5);">
+                                    {{ perm.granted_at.strftime('%Y-%m-%d') if perm.granted_at else '-' }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-folder-x display-4"></i>
+                    <p class="mt-3">暂无授权目录</p>
+                    <p class="text-muted small">请联系管理员为您分配目录权限</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- 最近活动 -->
+    <div class="col-lg-4">
+        <div class="content-card">
+            <div class="card-header-custom">
+                <h5><i class="bi bi-activity me-2"></i>最近活动</h5>
+            </div>
+            <div class="card-body-custom">
+                {% if recent_logs %}
+                <div class="activity-list">
+                    {% for log in recent_logs %}
+                    <div class="activity-item">
+                        <div class="activity-icon {% if log.status == 'failed' %}bg-danger{% elif log.action == 'upload' %}bg-primary{% elif log.action == 'download' %}bg-success{% elif log.action == 'delete' %}bg-danger{% elif log.action == 'login' %}bg-warning{% else %}bg-success{% endif %}">
+                            {% if log.action == 'login' %}
+                            <i class="bi bi-box-arrow-in-right"></i>
+                            {% elif log.action == 'upload' %}
+                            <i class="bi bi-cloud-upload"></i>
+                            {% elif log.action == 'download' %}
+                            <i class="bi bi-cloud-download"></i>
+                            {% elif log.action == 'delete' %}
+                            <i class="bi bi-trash"></i>
+                            {% else %}
+                            <i class="bi bi-dot"></i>
+                            {% endif %}
+                        </div>
+                        <div class="activity-content">
+                            <p class="mb-0">
+                                {% if log.action == 'login' %}
+                                登录系统
+                                {% elif log.action == 'upload' %}
+                                上传文件
+                                {% elif log.action == 'download' %}
+                                下载文件
+                                {% elif log.action == 'delete' %}
+                                删除文件
+                                {% else %}
+                                {{ log.action }}
+                                {% endif %}
+                            </p>
+                            <small class="text-muted">{{ log.timestamp.strftime('%m-%d %H:%M') }}</small>
+                        </div>
+                        <span class="activity-type {{ log.action }}">{{ log.action }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-activity display-4"></i>
+                    <p class="mt-3">暂无活动记录</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- 快速操作 -->
+        {% if user.role == 'admin' %}
+        <div class="content-card mt-4">
+            <div class="card-header-custom">
+                <h5><i class="bi bi-lightning me-2"></i>快速操作</h5>
+            </div>
+            <div class="card-body-custom">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('admin_users') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-people me-2"></i>用户管理
+                    </a>
+                    <a href="{{ url_for('admin_permissions') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-key me-2"></i>权限配置
+                    </a>
+                    <a href="{{ url_for('admin_logs') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-journal-text me-2"></i>查看日志
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 加载系统统计（仅管理员）
+{% if user.role == 'admin' %}
+fetch('/api/stats')
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('stat-users').textContent = data.total_users;
+        document.getElementById('stat-permissions').textContent = data.total_permissions;
+        document.getElementById('stat-logs').textContent = data.total_logs;
+    })
+    .catch(err => console.error('加载统计失败:', err));
+{% endif %}
+</script>
+{% endblock %}

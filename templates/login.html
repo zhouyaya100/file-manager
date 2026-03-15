@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}登录 - FileHub{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: transparent;
+        min-height: 100vh;
+        overflow: hidden;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 装饰背景 -->
+<div class="login-decoration">
+    <div class="decoration-circle circle-1"></div>
+    <div class="decoration-circle circle-2"></div>
+    <div class="decoration-circle circle-3"></div>
+</div>
+
+<div class="login-container">
+    <div class="login-box">
+        <!-- Logo -->
+        <div class="login-logo mb-4">
+            <i class="bi bi-cloud"></i>
+            <h1>FileHub</h1>
+            <p>多用户文件管理系统</p>
+        </div>
+        
+        {% if error %}
+        <div class="alert alert-danger mb-4" style="border-radius: 10px; background: rgba(255, 71, 87, 0.15); border: 1px solid rgba(255, 71, 87, 0.3); color: #ff4757;">
+            <i class="bi bi-exclamation-circle me-2"></i>{{ error }}
+        </div>
+        {% endif %}
+        
+        <!-- 登录表单 -->
+        <form method="POST" action="{{ url_for('login') }}">
+            <input type="hidden" name="next" value="{{ next }}">
+            
+            <div class="mb-4">
+                <label for="username" class="form-label">
+                    <i class="bi bi-person me-2"></i>用户名
+                </label>
+                <input type="text" class="form-control login-input" id="username" name="username" 
+                       placeholder="请输入用户名" required autofocus autocomplete="off">
+            </div>
+            
+            <div class="mb-4">
+                <label for="password" class="form-label">
+                    <i class="bi bi-lock me-2"></i>密码
+                </label>
+                <input type="password" class="form-control login-input" id="password" name="password" 
+                       placeholder="请输入密码" required autocomplete="off">
+            </div>
+            
+            <div class="d-grid mb-4">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>登录
+                </button>
+            </div>
+        </form>
+        
+        <!-- 提示信息 -->
+        <div class="login-tip">
+            <p class="mb-0"><i class="bi bi-info-circle me-2"></i>默认管理员账户：<strong>admin / Admin@123</strong></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

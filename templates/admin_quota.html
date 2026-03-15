@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}配额管理 - 文件管理系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-hdd"></i> 配额管理</h2>
+        <button class="btn btn-outline-secondary" onclick="location.href='/users'">
+            <i class="fas fa-arrow-left"></i> 返回用户管理
+        </button>
+    </div>
+
+    <!-- 统计概览 -->
+    <div class="row mb-4" id="statistics-container">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h3 id="stat-total-quota">-</h3>
+                    <p class="mb-0">总配额</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h3 id="stat-total-used">-</h3>
+                    <p class="mb-0">已使用</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h3 id="stat-usage-percent">-</h3>
+                    <p class="mb-0">使用率</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body text-center">
+                    <h3 id="stat-over-quota">-</h3>
+                    <p class="mb-0">超额用户</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 用户列表 -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">用户存储使用情况</h5>
+            <button class="btn btn-sm btn-outline-primary" onclick="loadUsers()">
+                <i class="fas fa-sync"></i> 刷新
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>用户</th>
+                            <th>邮箱</th>
+                            <th>角色</th>
+                            <th>已使用</th>
+                            <th>配额</th>
+                            <th>使用率</th>
+                            <th>状态</th>
+                            <th width="150">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-list">
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-5">
+                                <i class="fas fa-spinner fa-spin fa-2x"></i>
+                                <p class="mt-2">加载中...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 修改配额模态框 -->
+<div class="modal fade" id="editQuotaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">修改配额</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-user-id">
+                <div class="mb-3">
+                    <label class="form-label">用户</label>
+                    <input type="text" class="form-control" id="edit-username" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">当前配额</label>
+                    <input type="text" class="form-control" id="edit-current-quota" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">新配额 (GB)</label>
+                    <input type="number" class="form-control" id="edit-new-quota" min="1" value="10">
+                </div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    设置配额为 0 表示无限制
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="submitQuotaUpdate()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 加载统计数据
+function loadStatistics() {
+    fetch('/api/admin/quota/statistics')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('stat-total-quota').textContent = formatSize(data.total_quota);
+            document.getElementById('stat-total-used').textContent = formatSize(data.total_used);
+            document.getElementById('stat-usage-percent').textContent = data.usage_percentage.toFixed(1) + '%';
+            document.getElementById('stat-over-quota').textContent = data.users_over_quota;
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+// 加载用户列表
+function loadUsers() {
+    fetch('/api/admin/quota/users')
+        .then(response => response.json())
+        .then(data => {
+            renderUsersList(data.users);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('users-list').innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-danger">
+                        <i class="fas fa-exclamation-triangle"></i> 加载失败
+                    </td>
+                </tr>
+            `;
+        });
+}
+
+// 渲染用户列表
+function renderUsersList(users) {
+    const tbody = document.getElementById('users-list');
+    
+    tbody.innerHTML = users.map(user => `
+        <tr>
+            <td>
+                <i class="fas fa-user-circle text-secondary"></i>
+                <span style="color: #fff; font-weight: 500;">${escapeHtml(user.username)}</span>
+            </td>
+            <td style="color: rgba(255,255,255,0.7);">${escapeHtml(user.email)}</td>
+            <td>
+                <span class="badge bg-${user.role === 'admin' ? 'danger' : 'secondary'}">
+                    ${user.role === 'admin' ? '管理员' : '普通用户'}
+                </span>
+            </td>
+            <td>${formatSize(user.storage_used)}</td>
+            <td>${user.storage_quota > 0 ? formatSize(user.storage_quota) : '∞ 无限制'}</td>
+            <td>
+                <div class="progress" style="height: 20px;">
+                    <div class="progress-bar ${getUsageColor(user.usage_percentage)}" 
+                         role="progressbar" 
+                         style="width: ${Math.min(user.usage_percentage, 100)}%">
+                        ${user.usage_percentage.toFixed(1)}%
+                    </div>
+                </div>
+            </td>
+            <td>
+                ${user.is_active 
+                    ? '<span class="badge bg-success">正常</span>' 
+                    : '<span class="badge bg-secondary">停用</span>'}
+            </td>
+            <td>
+                <button class="btn btn-sm btn-primary" onclick="editQuota(${user.id}, '${escapeHtml(user.username)}', ${user.storage_quota})">
+                    <i class="fas fa-edit"></i> 修改
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// 编辑配额
+function editQuota(userId, username, currentQuota) {
+    document.getElementById('edit-user-id').value = userId;
+    document.getElementById('edit-username').value = username;
+    document.getElementById('edit-current-quota').value = currentQuota > 0 ? formatSize(currentQuota) : '∞ 无限制';
+    document.getElementById('edit-new-quota').value = currentQuota > 0 ? (currentQuota / 1024 / 1024 / 1024).toFixed(0) : 10;
+    
+    const modal = new bootstrap.Modal(document.getElementById('editQuotaModal'));
+    modal.show();
+}
+
+// 提交配额更新
+function submitQuotaUpdate() {
+    const userId = document.getElementById('edit-user-id').value;
+    const newQuotaGB = document.getElementById('edit-new-quota').value;
+    const newQuotaBytes = parseInt(newQuotaGB) * 1024 * 1024 * 1024;
+    
+    fetch(`/api/admin/quota/user/${userId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ quota: newQuotaBytes })
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.json();
+        } else {
+            return response.json().then(data => Promise.reject(data.error));
+        }
+    })
+    .then(data => {
+        showFlash('配额已更新', 'success');
+        bootstrap.Modal.getInstance(document.getElementById('editQuotaModal')).hide();
+        loadUsers();
+        loadStatistics();
+    })
+    .catch(error => {
+        showFlash('更新失败：' + error, 'danger');
+    });
+}
+
+// 辅助函数
+function formatSize(bytes) {
+    if (!bytes) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let size = bytes;
+    let unitIndex = 0;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024;
+        unitIndex++;
+    }
+    return `${size.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function getUsageColor(percentage) {
+    if (percentage >= 90) return 'bg-danger';
+    if (percentage >= 70) return 'bg-warning';
+    return 'bg-success';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showFlash(message, type = 'info') {
+    const flashContainer = document.getElementById('flash-messages');
+    if (flashContainer) {
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+        flashContainer.appendChild(alert);
+        setTimeout(() => alert.remove(), 5000);
+    } else {
+        alert(message);
+    }
+}
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    loadStatistics();
+    loadUsers();
+});
+</script>
+{% endblock %}

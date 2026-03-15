@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}错误 {{ code }} - 文件管理系统{% endblock %}
+
+{% block content %}
+<div class="error-container">
+    <div class="error-content">
+        <div class="error-icon">
+            <i class="bi bi-exclamation-triangle"></i>
+        </div>
+        <h1 class="error-code">{{ code }}</h1>
+        <h2 class="error-message">{{ error }}</h2>
+        <p class="text-muted mt-3">
+            {% if code == 404 %}
+            您访问的页面不存在或已被移除
+            {% elif code == 403 %}
+            您没有权限访问此页面
+            {% elif code == 500 %}
+            服务器遇到意外错误，请稍后重试
+            {% endif %}
+        </p>
+        
+        <div class="mt-4">
+            {% if session.user_id %}
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                <i class="bi bi-house me-2"></i>返回仪表板
+            </a>
+            {% else %}
+            <a href="{{ url_for('login') }}" class="btn btn-primary">
+                <i class="bi bi-box-arrow-in-right me-2"></i>返回登录
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

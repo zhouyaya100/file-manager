@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}个人设置 - FileHub{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="page-title">
+        <i class="bi bi-person-gear me-2" style="color: #00d4ff;"></i>个人设置
+    </h2>
+</div>
+
+<!-- 用户信息卡片 -->
+<div class="content-card mb-4">
+    <div class="card-body-custom p-4">
+        <div class="row">
+            <div class="col-md-6">
+                <h5 class="text-white mb-3">
+                    <i class="bi bi-person-circle me-2" style="color: #00d4ff;"></i>基本信息
+                </h5>
+                <table class="table table-borderless">
+                    <tr>
+                        <td class="text-muted" style="width: 120px;">用户名</td>
+                        <td class="text-white fw-medium">{{ user.username }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">角色</td>
+                        <td>
+                            {% if user.role == 'admin' %}
+                            <span class="badge bg-danger">管理员</span>
+                            {% else %}
+                            <span class="badge bg-secondary">普通用户</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">邮箱</td>
+                        <td class="text-white">{{ user.email or '未设置' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">账户状态</td>
+                        <td>
+                            {% if user.is_active %}
+                            <span class="badge bg-success">正常</span>
+                            {% else %}
+                            <span class="badge bg-danger">禁用</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">注册时间</td>
+                        <td class="text-white">{{ user.created_at.strftime('%Y-%m-%d %H:%M:%S') if user.created_at else '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">最后登录</td>
+                        <td class="text-white">{{ user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else '从未登录' }}</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h5 class="text-white mb-3">
+                    <i class="bi bi-shield-lock me-2" style="color: #00d4ff;"></i>安全设置
+                </h5>
+                <div class="p-3" style="background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid rgba(0,212,255,0.1);">
+                    <p class="text-muted mb-3">定期修改密码可以提高账户安全性</p>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
+                        <i class="bi bi-key me-1"></i>修改密码
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

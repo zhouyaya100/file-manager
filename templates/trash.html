@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+
+{% block title %}回收站 - 文件管理系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-trash-alt"></i> 回收站</h2>
+        <div>
+            <button class="btn btn-outline-secondary me-2" onclick="location.href='/'">
+                <i class="fas fa-arrow-left"></i> 返回
+            </button>
+            <button class="btn btn-danger" onclick="emptyTrash()">
+                <i class="fas fa-trash"></i> 清空回收站
+            </button>
+        </div>
+    </div>
+
+    <!-- 统计信息 -->
+    <div class="alert alert-info" role="alert">
+        <i class="fas fa-info-circle"></i>
+        回收站文件将保留 <strong>30 天</strong>，过期后自动永久删除。
+        <span id="trash-count" class="ms-3"></span>
+    </div>
+
+    <!-- 回收站文件列表 -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th width="50">
+                                <input type="checkbox" id="select-all" onchange="toggleSelectAll()">
+                            </th>
+                            <th>文件名</th>
+                            <th>类型</th>
+                            <th>大小</th>
+                            <th>删除时间</th>
+                            <th>过期时间</th>
+                            <th width="150">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trash-list">
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-5">
+                                <i class="fas fa-spinner fa-spin fa-2x"></i>
+                                <p class="mt-2">加载中...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            <nav aria-label="Page navigation" id="pagination" style="display: none;">
+                <ul class="pagination justify-content-center" id="pagination-list"></ul>
+            </nav>
+
+            <!-- 空状态 -->
+            <div id="empty-state" class="text-center py-5" style="display: none;">
+                <i class="fas fa-trash-alt fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">回收站是空的</h5>
+                <p class="text-muted">删除的文件将显示在这里</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量操作工具栏 -->
+<div class="position-fixed bottom-0 start-0 w-100 bg-dark text-white p-3" 
+     id="bulk-actions" style="display: none; z-index: 1000;">
+    <div class="container d-flex justify-content-between align-items-center">
+        <span id="selected-count">已选择 0 个文件</span>
+        <div>
+            <button class="btn btn-success btn-sm me-2" onclick="restoreSelected()">
+                <i class="fas fa-undo"></i> 恢复选中
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="deleteSelected()">
+                <i class="fas fa-trash"></i> 永久删除
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPage = 1;
+let totalPages = 1;
+let selectedItems = new Set();
+
+// 加载回收站列表
+function loadTrashList(page = 1) {
+    fetch(`/api/trash?page=${page}&per_page=20`)
+        .then(response => response.json())
+        .then(data => {
+            currentPage = data.current_page;
+            totalPages = data.pages;
+            renderTrashList(data);
+            renderPagination(data);
+            updateTrashCount(data.total);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('trash-list').innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-danger">
+                        <i class="fas fa-exclamation-triangle"></i> 加载失败
+                    </td>
+                </tr>
+            `;
+        });
+}
+
+// 渲染回收站列表
+function renderTrashList(data) {
+    const tbody = document.getElementById('trash-list');
+    
+    if (data.items.length === 0) {
+        document.getElementById('empty-state').style.display = 'block';
+        document.getElementById('pagination').style.display = 'none';
+        tbody.innerHTML = '';
+        return;
+    }
+    
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('pagination').style.display = 'block';
+    
+    tbody.innerHTML = data.items.map(item => `
+        <tr data-id="${item.id}">
+            <td>
+                <input type="checkbox" class="trash-checkbox" value="${item.id}" 
+                       onchange="toggleSelection(${item.id})" ${item.is_expired ? 'disabled' : ''}>
+            </td>
+            <td>
+                <i class="fas ${item.is_folder ? 'fa-folder' : 'fa-file'} text-${item.is_folder ? 'warning' : 'secondary'}"></i>
+                ${escapeHtml(item.file_name)}
+                ${item.is_expired ? '<span class="badge bg-danger ms-2">已过期</span>' : ''}
+            </td>
+            <td>${item.is_folder ? '文件夹' : '文件'}</td>
+            <td>${formatFileSize(item.file_size)}</td>
+            <td>${formatDate(item.deleted_at)}</td>
+            <td>${formatDate(item.expire_at)}</td>
+            <td>
+                ${!item.is_expired ? `
+                    <button class="btn btn-sm btn-success" onclick="restoreItem(${item.id})" title="恢复">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteFromTrash(${item.id})" title="永久删除">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                ` : `
+                    <span class="text-muted">无法操作</span>
+                `}
+            </td>
+        </tr>
+    `).join('');
+}
+
+// 恢复单个文件
+function restoreItem(trashId) {
+    if (!confirm('确定要恢复这个文件吗？')) return;
+    
+    fetch(`/api/trash/${trashId}/restore`, { method: 'POST' })
+        .then(response => {
+            if (response.ok) {
+                showFlash('文件已恢复', 'success');
+                loadTrashList(currentPage);
+            } else {
+                return response.json().then(data => Promise.reject(data.error));
+            }
+        })
+        .catch(error => {
+            showFlash('恢复失败：' + error, 'danger');
+        });
+}
+
+// 永久删除单个文件
+function deleteFromTrash(trashId) {
+    if (!confirm('确定要永久删除这个文件吗？此操作不可恢复！')) return;
+    
+    fetch(`/api/trash/${trashId}`, { method: 'DELETE' })
+        .then(response => {
+            if (response.ok) {
+                showFlash('文件已永久删除', 'success');
+                loadTrashList(currentPage);
+            } else {
+                return response.json().then(data => Promise.reject(data.error));
+            }
+        })
+        .catch(error => {
+            showFlash('删除失败：' + error, 'danger');
+        });
+}
+
+// 清空回收站
+function emptyTrash() {
+    if (!confirm('确定要清空回收站吗？所有文件将永久删除，此操作不可恢复！')) return;
+    
+    fetch('/api/trash/empty', { method: 'POST' })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                return response.json().then(data => Promise.reject(data.error));
+            }
+        })
+        .then(data => {
+            showFlash(data.message, 'success');
+            loadTrashList(1);
+        })
+        .catch(error => {
+            showFlash('清空失败：' + error, 'danger');
+        });
+}
+
+// 分页渲染
+function renderPagination(data) {
+    const paginationList = document.getElementById('pagination-list');
+    
+    if (data.pages <= 1) {
+        document.getElementById('pagination').style.display = 'none';
+        return;
+    }
+    
+    let html = '';
+    
+    // 上一页
+    html += `<li class="page-item ${!data.has_prev ? 'disabled' : ''}">
+        <a class="page-link" href="#" onclick="loadTrashList(${data.current_page - 1}); return false;">
+            <i class="fas fa-chevron-left"></i>
+        </a>
+    </li>`;
+    
+    // 页码
+    for (let i = 1; i <= data.pages; i++) {
+        if (i === 1 || i === data.pages || (i >= data.current_page - 2 && i <= data.current_page + 2)) {
+            html += `<li class="page-item ${i === data.current_page ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="loadTrashList(${i}); return false;">${i}</a>
+            </li>`;
+        } else if (i === data.current_page - 3 || i === data.current_page + 3) {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+    }
+    
+    // 下一页
+    html += `<li class="page-item ${!data.has_next ? 'disabled' : ''}">
+        <a class="page-link" href="#" onclick="loadTrashList(${data.current_page + 1}); return false;">
+            <i class="fas fa-chevron-right"></i>
+        </a>
+    </li>`;
+    
+    paginationList.innerHTML = html;
+}
+
+// 全选/取消全选
+function toggleSelectAll() {
+    const selectAll = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('.trash-checkbox:not(:disabled)');
+    
+    checkboxes.forEach(cb => {
+        cb.checked = selectAll.checked;
+        toggleSelection(parseInt(cb.value));
+    });
+}
+
+// 切换选择状态
+function toggleSelection(id) {
+    if (selectedItems.has(id)) {
+        selectedItems.delete(id);
+    } else {
+        selectedItems.add(id);
+    }
+    updateBulkActions();
+}
+
+// 更新批量操作工具栏
+function updateBulkActions() {
+    const bulkActions = document.getElementById('bulk-actions');
+    const selectedCount = document.getElementById('selected-count');
+    
+    if (selectedItems.size > 0) {
+        bulkActions.style.display = 'block';
+        selectedCount.textContent = `已选择 ${selectedItems.size} 个文件`;
+    } else {
+        bulkActions.style.display = 'none';
+    }
+}
+
+// 恢复选中的文件
+function restoreSelected() {
+    if (selectedItems.size === 0) return;
+    
+    if (!confirm(`确定要恢复选中的 ${selectedItems.size} 个文件吗？`)) return;
+    
+    let completed = 0;
+    selectedItems.forEach(id => {
+        fetch(`/api/trash/${id}/restore`, { method: 'POST' })
+            .finally(() => {
+                completed++;
+                if (completed === selectedItems.size) {
+                    showFlash(`已恢复 ${completed} 个文件`, 'success');
+                    selectedItems.clear();
+                    updateBulkActions();
+                    loadTrashList(currentPage);
+                }
+            });
+    });
+}
+
+// 永久删除选中的文件
+function deleteSelected() {
+    if (selectedItems.size === 0) return;
+    
+    if (!confirm(`确定要永久删除选中的 ${selectedItems.size} 个文件吗？此操作不可恢复！`)) return;
+    
+    let completed = 0;
+    selectedItems.forEach(id => {
+        fetch(`/api/trash/${id}`, { method: 'DELETE' })
+            .finally(() => {
+                completed++;
+                if (completed === selectedItems.size) {
+                    showFlash(`已永久删除 ${completed} 个文件`, 'success');
+                    selectedItems.clear();
+                    updateBulkActions();
+                    loadTrashList(currentPage);
+                }
+            });
+    });
+}
+
+// 更新回收站计数
+function updateTrashCount(count) {
+    document.getElementById('trash-count').textContent = count > 0 ? `共 ${count} 个文件` : '';
+}
+
+// 辅助函数
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatFileSize(bytes) {
+    if (!bytes) return '-';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let size = bytes;
+    let unitIndex = 0;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024;
+        unitIndex++;
+    }
+    return `${size.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function formatDate(isoString) {
+    if (!isoString) return '-';
+    const date = new Date(isoString);
+    return date.toLocaleString('zh-CN');
+}
+
+function showFlash(message, type = 'info') {
+    // 使用 base.html 中的 flash 消息系统
+    const flashContainer = document.getElementById('flash-messages');
+    if (flashContainer) {
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        flashContainer.appendChild(alert);
+        setTimeout(() => alert.remove(), 5000);
+    } else {
+        alert(message);
+    }
+}
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    loadTrashList(1);
+});
+</script>
+{% endblock %}

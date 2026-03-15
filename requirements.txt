@@ -1,0 +1,23 @@
+# 多用户文件管理系统 - 依赖包
+
+# Web 框架
+Flask>=2.3.0
+Flask-Login>=0.6.0
+Flask-SQLAlchemy>=3.0.0
+Flask-Limiter>=3.0.0
+
+# 数据库
+SQLAlchemy>=2.0.0
+
+# 安全
+Werkzeug>=2.3.0
+python-dotenv>=1.0.0
+
+# 文件处理
+python-magic>=0.4.27
+
+# 生产服务器 (Ubuntu 部署用)
+gunicorn>=21.0.0
+
+# 可选：监控和日志
+# watchdog>=3.0.0

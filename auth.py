@@ -28,6 +28,16 @@ def create_user(username, password, email=None, role='user', is_active=True):
         if existing:
             return None, '用户名已存在'
         
+        # 如果邮箱为空，生成唯一邮箱地址
+        if not email or email.strip() == '':
+            import time
+            email = f'{username}_{int(time.time())}@system.local'
+        else:
+            # 检查邮箱是否已被使用
+            existing_email = db.query(User).filter(User.email == email).first()
+            if existing_email:
+                return None, '邮箱已被使用'
+        
         # 创建新用户
         user = User(
             username=username,

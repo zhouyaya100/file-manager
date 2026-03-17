@@ -51,8 +51,22 @@ pip install -r requirements.txt
 
 ### 3. 启动服务
 
-**通用启动 (推荐):**
+**Windows:**
+```powershell
+# 方式一：一键启动（推荐）
+start.bat
+
+# 方式二：手动启动
+python start.py
+```
+
+**Linux/Mac:**
 ```bash
+# 方式一：一键启动（推荐）
+chmod +x start.sh
+./start.sh
+
+# 方式二：手动启动
 python start.py
 ```
 
@@ -77,6 +91,8 @@ python start.py --production
 ```
 
 ⚠️ **首次登录后请立即修改密码！**
+
+> 📖 **5 分钟快速上手**: 查看 [QUICKSTART.md](QUICKSTART.md) 了解完整使用流程
 
 ---
 
@@ -130,31 +146,80 @@ file_manager/
 ### 生产环境配置
 
 1. **设置 SECRET_KEY:**
+
+**Linux/Mac:**
 ```bash
-# Linux/Mac
+# 临时设置（当前终端会话）
 export SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
 
-# Windows PowerShell
+# 永久设置（添加到 ~/.bashrc 或 ~/.zshrc）
+echo 'export SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Windows PowerShell:**
+```powershell
+# 临时设置（当前终端会话）
 $env:SECRET_KEY = python -c "import secrets; print(secrets.token_hex(32))"
+
+# 永久设置（添加到系统环境变量）
+[System.Environment]::SetEnvironmentVariable('SECRET_KEY', (python -c "import secrets; print(secrets.token_hex(32))"), 'User')
 ```
 
 2. **使用 Gunicorn 启动:**
+
+**Linux/Mac:**
 ```bash
+# 使用 Gunicorn 启动（推荐）
+gunicorn -c gunicorn.conf.py app:app
+
+# 或使用启动脚本
+python start.py --production
+```
+
+**Windows:**
+```powershell
+# Windows 不支持 Gunicorn，使用 start.py
 python start.py --production
 ```
 
 3. **配置 Nginx 反向代理 (可选):**
+
 ```nginx
 server {
     listen 80;
     server_name your-domain.com;
 
+    # 静态文件缓存
+    location /static/ {
+        alias /path/to/file_manager/static/;
+        expires 1h;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # 反向代理到 Flask 应用
     location / {
         proxy_pass http://127.0.0.1:5000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
+```
+
+4. **配置系统服务 (Linux):**
+
+```bash
+# 复制 systemd 服务文件
+sudo cp file_manager.service /etc/systemd/system/
+
+# 启用并启动服务
+sudo systemctl enable file_manager
+sudo systemctl start file_manager
+
+# 查看状态
+sudo systemctl status file_manager
 ```
 
 ---

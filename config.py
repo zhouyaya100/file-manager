@@ -74,7 +74,7 @@ DEFAULT_ADMIN_EMAIL = 'admin@system.local'
 # ==================== 系统设置 ====================
 
 SYSTEM_NAME = 'FileHub'
-SYSTEM_VERSION = '1.0.0'
+SYSTEM_VERSION = '1.0.1'
 SYSTEM_DESCRIPTION = '多用户文件管理系统'
 
 # ==================== 功能开关 ====================

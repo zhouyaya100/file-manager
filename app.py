@@ -24,10 +24,11 @@ from file_manager import (
     create_directory, rename_item, get_file_info, allowed_file
 )
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 app.secret_key = config.SECRET_KEY
 app.config['MAX_CONTENT_LENGTH'] = config.MAX_CONTENT_LENGTH
 app.config['PERMANENT_SESSION_LIFETIME'] = config.PERMANENT_SESSION_LIFETIME
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600  # 静态资源缓存 1 小时
 
 
 # ==================== 辅助函数 ====================

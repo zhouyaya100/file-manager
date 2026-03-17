@@ -11,7 +11,7 @@ import config
 
 def hash_password(password):
     """密码加密"""
-    return generate_password_hash(password, method='pbkdf2:sha256:260000')
+    return generate_password_hash(password, method='pbkdf2:sha256:60000')
 
 
 def verify_password(password_hash, password):
